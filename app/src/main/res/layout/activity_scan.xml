@@ -11,19 +11,8 @@
         android:id="@+id/main_scan"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="QR 코드로 로그인"/>
+        android:text="QR 코드 인식"/>
 
-    <Button
-        android:id="@+id/main_state"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="장치와의 연결 상태"/>
-
-    <Button
-        android:id="@+id/main_password"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="비밀번호 설정하기"/>
     <Button
         android:id="@+id/main_master"
         android:layout_width="match_parent"
