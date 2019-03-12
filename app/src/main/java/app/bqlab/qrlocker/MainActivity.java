@@ -1,11 +1,15 @@
 package app.bqlab.qrlocker;
 
+import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -40,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         init();
         connectDevice();
+        requestPermission();
     }
 
     @Override
@@ -63,14 +68,18 @@ public class MainActivity extends AppCompatActivity {
         //initialize
         mBluetooth = new BluetoothSPP(this);
         mKeyPref = getSharedPreferences("KEYS", MODE_PRIVATE);
+        //attributes
+
         //events
         findViewById(R.id.main_scan).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (deviceConnected)
                     Toast.makeText(MainActivity.this, "이미 장치와 연결되어 있습니다.", Toast.LENGTH_LONG).show();
-                else
+                else {
                     startActivity(new Intent(MainActivity.this, ScanActivity.class));
+                    finish();
+                }
             }
         });
         findViewById(R.id.main_state).setOnClickListener(new View.OnClickListener() {
@@ -120,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 new AlertDialog.Builder(MainActivity.this)
                         .setMessage("마스터 키를 사용할까요?")
-                        .setPositiveButton("취소", new DialogInterface.OnClickListener() {
+                        .setNegativeButton("취소", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
 
@@ -136,7 +145,7 @@ public class MainActivity extends AppCompatActivity {
                                     Toast.makeText(MainActivity.this, "이미 마스터 키를 사용하고 있습니다.", Toast.LENGTH_LONG).show();
                             }
                         })
-                        .setNeutralButton("마스터 키를 사용하지 않음", new DialogInterface.OnClickListener() {
+                        .setNeutralButton("마스터 키 해제", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 Toast.makeText(MainActivity.this, "마스터 키를 사용하지 않습니다.", Toast.LENGTH_LONG).show();
@@ -231,8 +240,18 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(MainActivity.this, "장치와 연결할 수 없습니다.", Toast.LENGTH_LONG).show();
                     }
                 });
-                mBluetooth.connect(deviceAddress);
+                try {
+                    mBluetooth.connect(deviceAddress);
+                } catch (IllegalArgumentException e) {
+                    Toast.makeText(MainActivity.this, "잘못된 형식의 QR 코드입니다.", Toast.LENGTH_LONG).show();
+                }
             }
+        }
+    }
+
+    private void requestPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 0);
         }
     }
 }
