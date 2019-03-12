@@ -10,6 +10,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
@@ -28,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
     //variables
     boolean master;
     boolean deviceConnected;
+    String deviceAddress;
     //objects
     BluetoothSPP mBluetooth;
     SharedPreferences mKeyPref;
@@ -65,26 +67,89 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.main_scan).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, ScanActivity.class));
+                if (deviceConnected)
+                    Toast.makeText(MainActivity.this, "이미 장치와 연결되어 있습니다.", Toast.LENGTH_LONG).show();
+                else
+                    startActivity(new Intent(MainActivity.this, ScanActivity.class));
+            }
+        });
+        findViewById(R.id.main_state).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String state = deviceConnected ? "연결됨" : "연결되지 않음";
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage("블루투스 상태: " + state)
+                        .setPositiveButton("확인", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        }).show();
+            }
+        });
+        findViewById(R.id.main_password).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (deviceConnected) {
+                    final EditText passwordInput = new EditText(MainActivity.this);
+                    passwordInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
+                    passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+                    passwordInput.setSingleLine();
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setMessage("설정할 비밀번호를 입력하세요.")
+                            .setView(passwordInput)
+                            .setNegativeButton("취소", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+
+                                }
+                            })
+                            .setPositiveButton("확인", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    mKeyPref.edit().putString(deviceAddress, passwordInput.getText().toString()).apply();
+                                    Toast.makeText(MainActivity.this, "설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
+                                }
+                            }).show();
+                } else
+                    Toast.makeText(MainActivity.this, "장치와 연결되지 않았습니다.", Toast.LENGTH_LONG).show();
             }
         });
         findViewById(R.id.main_master).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 new AlertDialog.Builder(MainActivity.this)
-                        .setMessage("마스터 계정으로 전환할까요?")
+                        .setMessage("마스터 키를 사용할까요?")
+                        .setPositiveButton("취소", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        })
                         .setPositiveButton("확인", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                master = true;
+                                if (!master) {
+                                    Toast.makeText(MainActivity.this, "마스터 키를 사용합니다.", Toast.LENGTH_LONG).show();
+                                    master = true;
+                                } else
+                                    Toast.makeText(MainActivity.this, "이미 마스터 키를 사용하고 있습니다.", Toast.LENGTH_LONG).show();
                             }
-                        }).show();
+                        })
+                        .setNeutralButton("마스터 키를 사용하지 않음", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Toast.makeText(MainActivity.this, "마스터 키를 사용하지 않습니다.", Toast.LENGTH_LONG).show();
+                                master = false;
+                            }
+                        })
+                        .show();
             }
         });
     }
 
     private void connectDevice() {
-        String deviceAddress = getIntent().getStringExtra("DEVICE_ADDRESS");
+        deviceAddress = getIntent().getStringExtra("DEVICE_ADDRESS");
         if (deviceAddress != null) {
             if (!mBluetooth.isBluetoothAvailable()) {
                 Toast.makeText(this, "블루투스를 지원하지 않는 장치입니다.", Toast.LENGTH_LONG).show();
@@ -155,12 +220,14 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDeviceDisconnected() {
                         deviceConnected = false;
+                        Log.d("MainActivity", "Disconnected: " + deviceAddress);
                         Toast.makeText(MainActivity.this, "장치와의 연결이 끊겼습니다.", Toast.LENGTH_LONG).show();
                     }
 
                     @Override
                     public void onDeviceConnectionFailed() {
                         deviceConnected = false;
+                        Log.d("MainActivity", "Fail to connect: " + deviceAddress);
                         Toast.makeText(MainActivity.this, "장치와 연결할 수 없습니다.", Toast.LENGTH_LONG).show();
                     }
                 });
