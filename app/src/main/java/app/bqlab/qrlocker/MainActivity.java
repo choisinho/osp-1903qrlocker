@@ -22,9 +22,6 @@ import android.widget.Toast;
 
 import java.util.Objects;
 
-import app.akexorcist.bluetotohspp.library.BluetoothSPP;
-import app.akexorcist.bluetotohspp.library.BluetoothState;
-
 public class MainActivity extends AppCompatActivity {
 
     //constants
@@ -183,6 +180,7 @@ public class MainActivity extends AppCompatActivity {
                                 passwordInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
                                 passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
                                 passwordInput.setSingleLine();
+                                mBluetooth.send(LOCKER_OPEN, true);
                                 new AlertDialog.Builder(MainActivity.this)
                                         .setMessage("설정할 비밀번호를 입력하세요.")
                                         .setView(passwordInput)
@@ -195,6 +193,7 @@ public class MainActivity extends AppCompatActivity {
                                         .setPositiveButton("확인", new DialogInterface.OnClickListener() {
                                             @Override
                                             public void onClick(DialogInterface dialog, int which) {
+                                                mBluetooth.send(LOCKER_LOCK, true);
                                                 mKeyPref.edit().putString(address, passwordInput.getText().toString()).apply();
                                                 Toast.makeText(MainActivity.this, "설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
                                             }
