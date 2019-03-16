@@ -227,6 +227,7 @@ public class BluetoothSPP {
     
     public void disconnect() {
         if(mChatService != null) {
+            Log.d("BluetoothSPP", "It's stopping");
             isServiceRunning = false;
             mChatService.stop();
             if(mChatService.getState() == BluetoothState.STATE_NONE) {

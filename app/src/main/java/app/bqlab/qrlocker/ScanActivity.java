@@ -2,6 +2,7 @@ package app.bqlab.qrlocker;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.support.v7.app.AppCompatActivity;
@@ -25,6 +26,7 @@ public class ScanActivity extends AppCompatActivity {
     SurfaceView scanPreview;
     CameraSource cameraSource;
     BarcodeDetector mDetector;
+    SharedPreferences mSetting;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,12 +83,9 @@ public class ScanActivity extends AppCompatActivity {
                                 @Override
                                 public void run() {
                                     cameraSource.stop();
+                                    mSetting.edit().putString("DEVICE_ADDRESS", qrCode).apply();
                                     Vibrator vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
                                     vibrator.vibrate(1000);
-                                    Intent i = new Intent(ScanActivity.this, MainActivity.class);
-                                    i.putExtra("DEVICE_ADDRESS", qrCode);
-                                    Log.d("ScanActivity", "Scanned to " + qrCode);
-                                    startActivity(i);
                                     finish();
                                 }
                             });
