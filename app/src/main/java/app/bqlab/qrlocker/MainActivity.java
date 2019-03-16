@@ -22,6 +22,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import java.util.Objects;
+import java.util.TreeMap;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -132,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void connectDevice() {
         deviceAddress = getIntent().getStringExtra("DEVICE_ADDRESS");
-        if (deviceAddress != null) {
+        if (deviceAddress != null && !deviceConnected) {
             if (!mBluetooth.isBluetoothAvailable()) {
                 Toast.makeText(this, "블루투스를 지원하지 않는 기기입니다.", Toast.LENGTH_LONG).show();
                 finishAffinity();
@@ -147,8 +148,14 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDeviceConnected(String name, final String address) {
                         deviceConnected = true;
-                        if (isPasswordSet()) {
-                            mBluetooth.send(LOCKER_OPEN, true);
+                        if (!isPasswordSet()) {
+                            try {
+                                mBluetooth.send(LOCKER_OPEN, true);
+                                Thread.sleep(500);
+                                mBluetooth.send(LOCKER_OPEN, true);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                             showSetPasswordDialog();
                         } else
                             showCheckPasswordDialog();
@@ -175,6 +182,18 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "잘못된 형식의 QR 코드입니다.", Toast.LENGTH_LONG).show();
                 }
             }
+        } else if (deviceConnected) {
+            if (!isPasswordSet()) {
+                try {
+                    mBluetooth.send(LOCKER_OPEN, true);
+                    Thread.sleep(500);
+                    mBluetooth.send(LOCKER_OPEN, true);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                showSetPasswordDialog();
+            } else
+                showCheckPasswordDialog();
         }
     }
 
@@ -183,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         passwordInput.setSingleLine();
         new AlertDialog.Builder(this)
-                .setCancelable(true)
+                .setCancelable(false)
                 .setTitle("잠금 설정")
                 .setMessage("비밀번호를 설정하세요.")
                 .setView(passwordInput)
@@ -195,7 +214,13 @@ public class MainActivity extends AppCompatActivity {
                             if (input.isEmpty()) {
                                 Toast.makeText(MainActivity.this, "비밀번호를 입력하세요.", Toast.LENGTH_LONG).show();
                             } else {
-                                mBluetooth.send(LOCKER_LOCK, true);
+                                try {
+                                    mBluetooth.send(LOCKER_LOCK, true);
+                                    Thread.sleep(500);
+                                    mBluetooth.send(LOCKER_LOCK, true);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
                                 mKeyPref.edit().putString(deviceAddress, input).apply();
                                 Log.d("MainActivity", deviceAddress + "'s password set to" + input);
                             }
@@ -222,7 +247,7 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         passwordInput.setSingleLine();
         new AlertDialog.Builder(this)
-                .setCancelable(true)
+                .setCancelable(false)
                 .setTitle("잠금 해제")
                 .setMessage("설정한 비밀번호를 입력하세요.")
                 .setView(passwordInput)
@@ -231,17 +256,29 @@ public class MainActivity extends AppCompatActivity {
                     public void onClick(DialogInterface dialog, int which) {
                         if (deviceConnected) {
                             if (master) {
-                                Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
-                                mKeyPref.edit().putString(deviceAddress, "").apply();
-                                mBluetooth.send(LOCKER_OPEN, true);
-                                mBluetooth.disconnect();
-                            } else {
-                                String input = passwordInput.getText().toString();
-                                if (isPasswordRight(input)) {
+                                try {
                                     Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
                                     mKeyPref.edit().putString(deviceAddress, "").apply();
                                     mBluetooth.send(LOCKER_OPEN, true);
+                                    Thread.sleep(500);
+                                    mBluetooth.send(LOCKER_OPEN, true);
                                     mBluetooth.disconnect();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            } else {
+                                String input = passwordInput.getText().toString();
+                                if (isPasswordRight(input)) {
+                                    try {
+                                        Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
+                                        mKeyPref.edit().putString(deviceAddress, "").apply();
+                                        mBluetooth.send(LOCKER_OPEN, true);
+                                        Thread.sleep(500);
+                                        mBluetooth.send(LOCKER_OPEN, true);
+                                        mBluetooth.disconnect();
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
                                 } else {
                                     Log.d("MainActivity", "Wrong password input");
                                     Toast.makeText(MainActivity.this, "비밀번호가 틀립니다.", Toast.LENGTH_LONG).show();
@@ -260,10 +297,15 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         passwordInput.setSingleLine();
         new AlertDialog.Builder(this)
-                .setCancelable(true)
                 .setTitle("비밀번호 변경")
                 .setMessage("설정한 비밀번호를 입력하세요.")
                 .setView(passwordInput)
+                .setNegativeButton("취소", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                })
                 .setPositiveButton("확인", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -276,8 +318,24 @@ public class MainActivity extends AppCompatActivity {
                                     Toast.makeText(MainActivity.this, "비밀번호를 입력하세요.", Toast.LENGTH_LONG).show();
                                 } else {
                                     if (isPasswordRight(input)) {
-                                        mKeyPref.edit().putString(deviceAddress, input).apply();
-                                        Log.d("MainActivity", deviceAddress + "'s password edited to" + input);
+                                        final String newInput = passwordInput.getText().toString();
+                                        new AlertDialog.Builder(MainActivity.this)
+                                                .setTitle("비밀번호 변경")
+                                                .setMessage("변경할 비밀번호를 입력하세요.")
+                                                .setView(passwordInput)
+                                                .setNegativeButton("취소", new DialogInterface.OnClickListener() {
+                                                    @Override
+                                                    public void onClick(DialogInterface dialog, int which) {
+
+                                                    }
+                                                })
+                                                .setPositiveButton("확인", new DialogInterface.OnClickListener() {
+                                                    @Override
+                                                    public void onClick(DialogInterface dialog, int which) {
+                                                        mKeyPref.edit().putString(deviceAddress, newInput).apply();
+                                                        Log.d("MainActivity", deviceAddress + "'s password edited to" + newInput);
+                                                    }
+                                                }).show();
                                     } else {
                                         Log.d("MainActivity", "Wrong password input");
                                         Toast.makeText(MainActivity.this, "비밀번호가 틀립니다.", Toast.LENGTH_LONG).show();
@@ -293,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isPasswordSet() {
-        boolean b = Objects.equals(mKeyPref.getString(deviceAddress, ""), "");
+        boolean b = !Objects.equals(mKeyPref.getString(deviceAddress, ""), "");
         Log.d("MainActivity", "Address: " + deviceAddress);
         Log.d("MainActivity", "Address PW: " + String.valueOf(b));
         return b;
