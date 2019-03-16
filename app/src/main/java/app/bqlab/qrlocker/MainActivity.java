@@ -85,9 +85,10 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDeviceConnected(String name, final String address) {
                         deviceConnected = true;
-                        if (isPasswordSet())
+                        if (isPasswordSet()) {
+                            mBluetooth.send(LOCKER_OPEN, true);
                             showSetPasswordDialog();
-                        else
+                        } else
                             showCheckPasswordDialog();
                     }
 
