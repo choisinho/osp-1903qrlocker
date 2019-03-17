@@ -37,6 +37,7 @@ public class ScanActivity extends AppCompatActivity {
 
     private void init() {
         scanPreview = findViewById(R.id.scan_preview);
+        mSetting = getSharedPreferences("SETTING", MODE_PRIVATE);
         mDetector = new BarcodeDetector.Builder(this)
                 .setBarcodeFormats(Barcode.QR_CODE).build();
         cameraSource = new CameraSource.Builder(this, mDetector)
@@ -86,6 +87,7 @@ public class ScanActivity extends AppCompatActivity {
                                     mSetting.edit().putString("DEVICE_ADDRESS", qrCode).apply();
                                     Vibrator vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
                                     vibrator.vibrate(1000);
+                                    startActivity(new Intent(ScanActivity.this, MainActivity.class));
                                     finish();
                                 }
                             });

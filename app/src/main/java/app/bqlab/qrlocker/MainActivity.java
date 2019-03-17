@@ -40,12 +40,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        startActivity(getIntent());
-    }
-
-    @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if (resultCode == Activity.RESULT_CANCELED) {
             switch (requestCode) {
@@ -66,11 +60,13 @@ public class MainActivity extends AppCompatActivity {
         //initialize
         mBluetooth = new BluetoothSPP(this);
         mKeyPref = getSharedPreferences("KEYS", MODE_PRIVATE);
+        mSetting = getSharedPreferences("SETTING", MODE_PRIVATE);
         //events
         findViewById(R.id.main_scan).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, ScanActivity.class));
+                finish();
             }
         });
         findViewById(R.id.main_state).setOnClickListener(new View.OnClickListener() {
@@ -130,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void connectDevice() {
-        if (Objects.equals(mSetting.getString("DEVICE_ADDRESS", ""), "")) {
+        if (!Objects.equals(mSetting.getString("DEVICE_ADDRESS", ""), "")) {
             if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
                 showCheckPasswordDialog();
             } else {
@@ -217,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 }
-                                mSetting.edit().putString("DEVICE_ADDRESS", "").apply();
+                                mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), input).apply();
                                 Log.d("MainActivity", mSetting.getString("DEVICE_ADDRESS", "") + "'s password set to " + input);
                             }
                         } else {
@@ -230,7 +226,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDismiss(DialogInterface dialog) {
                         if (!isPasswordSet()) {
-                            Toast.makeText(MainActivity.this, "사물함을 사용하지 않습니다.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, "다시 비밀번호를 설정하세요.", Toast.LENGTH_LONG).show();
                             Log.d("MainActivity", "Not input password");
                         }
                     }
