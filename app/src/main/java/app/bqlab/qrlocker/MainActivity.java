@@ -27,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
     //constants
     final String LOCKER_OPEN = "1";
     final String LOCKER_LOCK = "2";
+    //variables
+    boolean connectFlag;
     //objects
     BluetoothSPP mBluetooth;
     SharedPreferences mKeyPref, mSetting;
@@ -85,15 +87,6 @@ public class MainActivity extends AppCompatActivity {
                         }).show();
             }
         });
-        findViewById(R.id.main_password).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mSetting.getBoolean("DEVICE_CONNECTED", false))
-                    showEditPasswordDialog();
-                else
-                    Toast.makeText(MainActivity.this, "사물함과 연결되어 있지 않습니다.", Toast.LENGTH_LONG).show();
-            }
-        });
         findViewById(R.id.main_master).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -142,53 +135,65 @@ public class MainActivity extends AppCompatActivity {
             connectDevice();
         } else {
             if (!Objects.equals(mSetting.getString("DEVICE_ADDRESS", ""), "")) {
-                Log.d("MainActivity", "Remained Adrees: " + mSetting.getString("DEVICE_ADDRESS", ""));
-                if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
-                    showCheckPasswordDialog();
-                } else {
-                    mBluetooth.setOnDataReceivedListener(new BluetoothSPP.OnDataReceivedListener() {
-                        @Override
-                        public void onDataReceived(byte[] data, String message) {
-                            mSetting.edit().putBoolean("DEVICE_CONNECTED", true).apply();
+                mBluetooth.setOnDataReceivedListener(new BluetoothSPP.OnDataReceivedListener() {
+                    @Override
+                    public void onDataReceived(byte[] data, String message) {
+                        mSetting.edit().putBoolean("DEVICE_CONNECTED", true).apply();
+                        Toast.makeText(MainActivity.this, String.valueOf(connectFlag), Toast.LENGTH_LONG).show();
+                        if (mSetting.getBoolean("DEVICE_CONNECTED", false) && !connectFlag) {
+                            connectFlag = true;
+                            controlLocker();
                         }
-                    });
-                    mBluetooth.setBluetoothConnectionListener(new BluetoothSPP.BluetoothConnectionListener() {
-                        @Override
-                        public void onDeviceConnected(String name, final String address) {
-                            Toast.makeText(MainActivity.this, "연결되었습니다.", Toast.LENGTH_LONG).show();
-                            if (!isPasswordSet()) {
-                                try {
-                                    mBluetooth.send(LOCKER_OPEN, true);
-                                    Thread.sleep(500);
-                                    mBluetooth.send(LOCKER_OPEN, true);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                                showSetPasswordDialog();
-                            } else
-                                showCheckPasswordDialog();
-                        }
-
-                        @Override
-                        public void onDeviceDisconnected() {
-                            mSetting.edit().putBoolean("DEVICE_CONNECTED", false).apply();
-                        }
-
-                        @Override
-                        public void onDeviceConnectionFailed() {
-                            mSetting.edit().putBoolean("DEVICE_CONNECTED", false).apply();
-                            Toast.makeText(MainActivity.this, "사물함과 연결할 수 없습니다.", Toast.LENGTH_LONG).show();
-                        }
-                    });
-                    try {
-                        mBluetooth.connect(mSetting.getString("DEVICE_ADDRESS", ""));
-                        Toast.makeText(this, "사물함과 연결하는 중입니다.", Toast.LENGTH_LONG).show();
-                    } catch (IllegalArgumentException e) {
-                        Log.d("MainActivity", "IllegalArgumentException");
-                        Toast.makeText(MainActivity.this, "잘못된 형식의 QR 코드입니다.", Toast.LENGTH_LONG).show();
                     }
-                }
+                });
+                mBluetooth.setBluetoothConnectionListener(new BluetoothSPP.BluetoothConnectionListener() {
+                    @Override
+                    public void onDeviceConnected(String name, String address) {
+                        Toast.makeText(MainActivity.this, "사물함과 연결하는 중입니다.", Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onDeviceDisconnected() {
+                        mSetting.edit().putBoolean("DEVICE_CONNECTED", false).apply();
+                    }
+
+                    @Override
+                    public void onDeviceConnectionFailed() {
+                        mSetting.edit().putBoolean("DEVICE_CONNECTED", false).apply();
+                    }
+                });
+                mBluetooth.connect(mSetting.getString("DEVICE_ADDRESS", ""));
             }
+        }
+    }
+
+    private void controlLocker() {
+        if (isPasswordSet()) {
+            //user want to locker open
+            if (mSetting.getBoolean("MASTER", false)) {
+                //if user has master key
+                try {
+                    mBluetooth.send(LOCKER_OPEN, false);
+                    Thread.sleep(500);
+                    mBluetooth.send(LOCKER_OPEN, false);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                Toast.makeText(MainActivity.this, "사물함이 열립니다.", Toast.LENGTH_LONG).show();
+            } else {
+                showCheckPasswordDialog();
+            }
+        } else {
+            //user want to locker set and close
+            try {
+                mBluetooth.send(LOCKER_OPEN, false);
+                Thread.sleep(500);
+                mBluetooth.send(LOCKER_OPEN, false);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            Toast.makeText(MainActivity.this, "사물함이 열립니다.", Toast.LENGTH_LONG).show();
+            showSetPasswordDialog();
         }
     }
 
@@ -198,42 +203,29 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setSingleLine();
         new AlertDialog.Builder(this)
                 .setCancelable(false)
-                .setTitle("잠금 설정")
-                .setMessage("비밀번호를 설정하세요.")
+                .setTitle("사물함 이용")
+                .setMessage("물건을 넣은 후 비밀번호를 입력하면 사물함이 닫힙니다.")
                 .setView(passwordInput)
                 .setPositiveButton("확인", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
-                            String input = passwordInput.getText().toString();
-                            if (input.isEmpty()) {
-                                Toast.makeText(MainActivity.this, "비밀번호를 입력하세요.", Toast.LENGTH_LONG).show();
-                            } else {
-                                try {
-                                    mBluetooth.send(LOCKER_LOCK, true);
-                                    Thread.sleep(500);
-                                    mBluetooth.send(LOCKER_LOCK, true);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                                mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), input).apply();
-                                Log.d("MainActivity", mSetting.getString("DEVICE_ADDRESS", "") + "'s password set to " + input);
-                            }
+                        String input = passwordInput.getText().toString();
+                        if (input.isEmpty()) {
+                            Toast.makeText(MainActivity.this, "비밀번호를 입력하지 않았습니다.", Toast.LENGTH_LONG).show();
                         } else {
-                            Log.d("MainActivity", "Fail to set password");
-                            Toast.makeText(MainActivity.this, "사물함과 연결되어 있지 않습니다.", Toast.LENGTH_LONG).show();
+                            try {
+                                mBluetooth.send(LOCKER_LOCK, false);
+                                Thread.sleep(500);
+                                mBluetooth.send(LOCKER_LOCK, false);
+                                Thread.sleep(500);
+                                mBluetooth.disconnect();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            Toast.makeText(MainActivity.this, "비밀번호 설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
+                            mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), input).apply();
                         }
                     }
-                })
-                .setOnDismissListener(new DialogInterface.OnDismissListener() {
-                    @Override
-                    public void onDismiss(DialogInterface dialog) {
-                        if (!isPasswordSet()) {
-                            Toast.makeText(MainActivity.this, "다시 비밀번호를 설정하세요.", Toast.LENGTH_LONG).show();
-                            Log.d("MainActivity", "Not input password");
-                        }
-                    }
-
                 }).show();
     }
 
@@ -243,103 +235,95 @@ public class MainActivity extends AppCompatActivity {
         passwordInput.setSingleLine();
         new AlertDialog.Builder(this)
                 .setCancelable(false)
-                .setTitle("잠금 해제")
+                .setTitle("사물함 설정")
                 .setMessage("설정한 비밀번호를 입력하세요.")
                 .setView(passwordInput)
                 .setPositiveButton("확인", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
-                            if (mSetting.getBoolean("MASTER", false)) {
-                                try {
-                                    Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
-                                    mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), "").apply();
-                                    mBluetooth.send(LOCKER_OPEN, true);
-                                    Thread.sleep(500);
-                                    mBluetooth.send(LOCKER_OPEN, true);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                            } else {
-                                String input = passwordInput.getText().toString();
-                                if (isPasswordRight(input) && !input.isEmpty()) {
+                        String input = passwordInput.getText().toString();
+                        if (isPasswordRight(input) && !input.isEmpty()) {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("사물함 설정")
+                                    .setMessage("사물함을 열어 물건을 꺼낼 지 비밀번호를 변경할 지 고르세요.")
+                                    .setCancelable(false)
+                                    .setNegativeButton("취소", new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            Toast.makeText(MainActivity.this, "설정을 취소하였습니다.", Toast.LENGTH_LONG).show();
+                                            mBluetooth.disconnect();
+                                        }
+                                    }).setPositiveButton("사물함 열기", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
                                     try {
-                                        Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
-                                        mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), "").apply();
-                                        mBluetooth.send(LOCKER_OPEN, true);
+                                        mBluetooth.send(LOCKER_OPEN, false);
                                         Thread.sleep(500);
-                                        mBluetooth.send(LOCKER_OPEN, true);
+                                        mBluetooth.send(LOCKER_OPEN, false);
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();
-                                    } catch (NullPointerException e) {
-                                        e.printStackTrace();
                                     }
-                                } else {
-                                    Toast.makeText(MainActivity.this, "비밀번호가 틀립니다.", Toast.LENGTH_LONG).show();
-                                    Log.d("MainActivity", "Wrong password input");
-                                }
-                            }
-                        } else {
-                            Log.d("MainActivity", "Fail to set password");
-                            Toast.makeText(MainActivity.this, "사물함과 연결되어 있지 않습니다.", Toast.LENGTH_LONG).show();
-                        }
-                    }
-                }).show();
-    }
-
-    private void showEditPasswordDialog() {
-        final EditText passwordInput = new EditText(this);
-        passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        passwordInput.setSingleLine();
-        new AlertDialog.Builder(this)
-                .setTitle("비밀번호 변경")
-                .setMessage("설정한 비밀번호를 입력하세요.")
-                .setView(passwordInput)
-                .setNegativeButton("취소", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-
-                    }
-                })
-                .setPositiveButton("확인", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
-                            if (mSetting.getBoolean("MASTER", false)) {
-                                Toast.makeText(MainActivity.this, "마스터 키를 사용중입니다.", Toast.LENGTH_LONG).show();
-                            } else {
-                                String input = passwordInput.getText().toString();
-                                if (input.isEmpty()) {
-                                    Toast.makeText(MainActivity.this, "비밀번호를 입력하세요.", Toast.LENGTH_LONG).show();
-                                } else {
-                                    if (isPasswordRight(input)) {
-                                        final String newInput = passwordInput.getText().toString();
-                                        new AlertDialog.Builder(MainActivity.this)
-                                                .setTitle("비밀번호 변경")
-                                                .setMessage("변경할 비밀번호를 입력하세요.")
-                                                .setView(passwordInput)
-                                                .setNegativeButton("취소", new DialogInterface.OnClickListener() {
-                                                    @Override
-                                                    public void onClick(DialogInterface dialog, int which) {
-
+                                    new AlertDialog.Builder(MainActivity.this)
+                                            .setCancelable(false)
+                                            .setTitle("사물함 설정")
+                                            .setMessage("물건을 꺼내신 후 사물함을 닫으세요.")
+                                            .setPositiveButton("사물함 닫기", new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    mKeyPref.edit().remove(mSetting.getString("DEVICE_ADDRESS", "")).apply();
+                                                    mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), "").apply();
+                                                    Toast.makeText(MainActivity.this, "이용해주셔서 감사합니다.", Toast.LENGTH_LONG).show();
+                                                    try {
+                                                        mBluetooth.send(LOCKER_LOCK, false);
+                                                        Thread.sleep(500);
+                                                        mBluetooth.send(LOCKER_LOCK, false);
+                                                        Thread.sleep(500);
+                                                        mBluetooth.disconnect();
+                                                    } catch (InterruptedException e) {
+                                                        e.printStackTrace();
                                                     }
-                                                })
-                                                .setPositiveButton("확인", new DialogInterface.OnClickListener() {
-                                                    @Override
-                                                    public void onClick(DialogInterface dialog, int which) {
-                                                        mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), newInput).apply();
-                                                        Log.d("MainActivity", mSetting.getString("DEVICE_ADDRESS", "") + "'s password edited to" + newInput);
-                                                    }
-                                                }).show();
-                                    } else {
-                                        Log.d("MainActivity", "Wrong password input");
-                                        Toast.makeText(MainActivity.this, "비밀번호가 틀립니다.", Toast.LENGTH_LONG).show();
-                                    }
+                                                }
+                                            }).show();
                                 }
-                            }
+                            }).setNeutralButton("비밀번호 재설정", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    final EditText passwordInput = new EditText(MainActivity.this);
+                                    passwordInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+                                    passwordInput.setSingleLine();
+                                    new AlertDialog.Builder(MainActivity.this)
+                                            .setTitle("사물함 설정")
+                                            .setMessage("재설정할 비밀번호를 입력하세요.")
+                                            .setCancelable(false)
+                                            .setView(passwordInput)
+                                            .setPositiveButton("확인", new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    String input = passwordInput.getText().toString();
+                                                    if (input.isEmpty()) {
+                                                        Toast.makeText(MainActivity.this, "비밀번호를 입력하지 않았습니다.", Toast.LENGTH_LONG).show();
+                                                        mBluetooth.disconnect();
+                                                    } else {
+                                                        try {
+                                                            mBluetooth.send(LOCKER_LOCK, false);
+                                                            Thread.sleep(500);
+                                                            mBluetooth.send(LOCKER_LOCK, false);
+                                                            Thread.sleep(500);
+                                                            mBluetooth.disconnect();
+                                                        } catch (InterruptedException e) {
+                                                            e.printStackTrace();
+                                                        }
+                                                        Toast.makeText(MainActivity.this, "비밀번호 설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
+                                                        mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), input).apply();
+                                                        Toast.makeText(MainActivity.this, "설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
+                                                    }
+                                                }
+                                            }).show();
+                                }
+                            }).show();
                         } else {
-                            Log.d("MainActivity", "Fail to set password");
-                            Toast.makeText(MainActivity.this, "사물함과 연결되어 있지 않습니다.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, "비밀번호가 틀립니다.", Toast.LENGTH_LONG).show();
+                            mBluetooth.disconnect();
                         }
                     }
                 }).show();
