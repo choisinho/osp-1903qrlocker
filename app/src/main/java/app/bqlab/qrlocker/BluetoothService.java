@@ -189,6 +189,8 @@ public class BluetoothService {
                     socket = mmServerSocket.accept();
                 } catch (IOException e) {
                     break;
+                } catch (NullPointerException e) {
+                    break;
                 }
                 if (socket != null) {
                     synchronized (BluetoothService.this) {

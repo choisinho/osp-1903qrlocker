@@ -14,6 +14,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.TextPaint;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
@@ -37,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
         init();
         connectDevice();
         requestPermission();
+        startService(new Intent(this, TaskService.class));
     }
 
     @Override
@@ -126,22 +128,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void connectDevice() {
-        if (!Objects.equals(mSetting.getString("DEVICE_ADDRESS", ""), "")) {
-            if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
-                showCheckPasswordDialog();
-            } else {
-                if (!mBluetooth.isBluetoothAvailable()) {
-                    Toast.makeText(this, "블루투스를 지원하지 않는 기기입니다.", Toast.LENGTH_LONG).show();
-                    Log.d("MainActivity", "Bluetooth not supported");
-                    finishAffinity();
-                } else if (!mBluetooth.isBluetoothEnabled()) {
-                    startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), BluetoothState.REQUEST_ENABLE_BT);
-                    Log.d("MainActivity", "Bluetooth be enabled");
-                } else if (!mBluetooth.isServiceAvailable()) {
-                    mBluetooth.setupService();
-                    mBluetooth.startService(BluetoothState.DEVICE_OTHER);
-                    Log.d("MainActivity", "Bluetooth installed");
-                    connectDevice();
+        if (!mBluetooth.isBluetoothAvailable()) {
+            Toast.makeText(this, "블루투스를 지원하지 않는 기기입니다.", Toast.LENGTH_LONG).show();
+            Log.d("MainActivity", "Bluetooth not supported");
+            finishAffinity();
+        } else if (!mBluetooth.isBluetoothEnabled()) {
+            startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), BluetoothState.REQUEST_ENABLE_BT);
+            Log.d("MainActivity", "Bluetooth be enabled");
+        } else if (!mBluetooth.isServiceAvailable()) {
+            mBluetooth.setupService();
+            mBluetooth.startService(BluetoothState.DEVICE_OTHER);
+            Log.d("MainActivity", "Bluetooth installed");
+            connectDevice();
+        } else {
+            if (!Objects.equals(mSetting.getString("DEVICE_ADDRESS", ""), "")) {
+                Log.d("MainActivity", "Remained Adrees: " + mSetting.getString("DEVICE_ADDRESS", ""));
+                if (mSetting.getBoolean("DEVICE_CONNECTED", false)) {
+                    showCheckPasswordDialog();
                 } else {
                     mBluetooth.setOnDataReceivedListener(new BluetoothSPP.OnDataReceivedListener() {
                         @Override
@@ -259,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             } else {
                                 String input = passwordInput.getText().toString();
-                                if (isPasswordRight(input)) {
+                                if (isPasswordRight(input) && !input.isEmpty()) {
                                     try {
                                         Toast.makeText(MainActivity.this, "잠금이 해제됩니다.", Toast.LENGTH_LONG).show();
                                         mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), "").apply();
@@ -267,6 +270,8 @@ public class MainActivity extends AppCompatActivity {
                                         Thread.sleep(500);
                                         mBluetooth.send(LOCKER_OPEN, true);
                                     } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    } catch (NullPointerException e) {
                                         e.printStackTrace();
                                     }
                                 } else {
@@ -345,7 +350,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isPasswordRight(String input) {
-        return Objects.equals(mKeyPref.getString(mSetting.getString("DEVICE_ADDRESS", ""), ""), input);
+        String original = mKeyPref.getString(mSetting.getString("DEVICE_ADDRESS", ""), "");
+        Log.d("MainActivity", "isPasswordRight: Origianl: " + original);
+        Log.d("MainActivity", "isPasswordRight: Inputted: " + input);
+        return Objects.equals(original, input);
     }
 
     private void requestPermission() {

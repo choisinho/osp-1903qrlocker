@@ -272,12 +272,15 @@ public class BluetoothSPP {
         }
     }
     
-    public void send(String data, boolean CRLF) {
+    void send(String data, boolean CRLF) {
+        Log.d("여기", "조건문 확인 전");
         if(mChatService.getState() == BluetoothState.STATE_CONNECTED) {
-            if(CRLF) 
-                data += "\r\n"; 
+            if(CRLF)
+                data += "\r\n";
             mChatService.write(data.getBytes());
+            Log.d("여기", "조건문 확인 중");
         }
+        Log.d("여기", "조건문 확인 후");
     }
     
     public String getConnectedDeviceName() {
