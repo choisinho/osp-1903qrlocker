@@ -139,7 +139,6 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDataReceived(byte[] data, String message) {
                         mSetting.edit().putBoolean("DEVICE_CONNECTED", true).apply();
-                        Toast.makeText(MainActivity.this, String.valueOf(connectFlag), Toast.LENGTH_LONG).show();
                         if (mSetting.getBoolean("DEVICE_CONNECTED", false) && !connectFlag) {
                             connectFlag = true;
                             controlLocker();
