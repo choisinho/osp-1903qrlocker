@@ -210,7 +210,16 @@ public class MainActivity extends AppCompatActivity {
                     public void onClick(DialogInterface dialog, int which) {
                         String input = passwordInput.getText().toString();
                         if (input.isEmpty()) {
-                            Toast.makeText(MainActivity.this, "비밀번호를 입력하지 않았습니다.", Toast.LENGTH_LONG).show();
+                            try {
+                                Toast.makeText(MainActivity.this, "비밀번호를 입력하지 않았습니다.", Toast.LENGTH_LONG).show();
+                                mBluetooth.send(LOCKER_LOCK, false);
+                                Thread.sleep(500);
+                                mBluetooth.send(LOCKER_LOCK, false);
+                                Thread.sleep(500);
+                                mBluetooth.disconnect();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         } else {
                             try {
                                 mBluetooth.send(LOCKER_LOCK, false);
@@ -303,18 +312,10 @@ public class MainActivity extends AppCompatActivity {
                                                         Toast.makeText(MainActivity.this, "비밀번호를 입력하지 않았습니다.", Toast.LENGTH_LONG).show();
                                                         mBluetooth.disconnect();
                                                     } else {
-                                                        try {
-                                                            mBluetooth.send(LOCKER_LOCK, false);
-                                                            Thread.sleep(500);
-                                                            mBluetooth.send(LOCKER_LOCK, false);
-                                                            Thread.sleep(500);
-                                                            mBluetooth.disconnect();
-                                                        } catch (InterruptedException e) {
-                                                            e.printStackTrace();
-                                                        }
                                                         Toast.makeText(MainActivity.this, "비밀번호 설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
                                                         mKeyPref.edit().putString(mSetting.getString("DEVICE_ADDRESS", ""), input).apply();
                                                         Toast.makeText(MainActivity.this, "설정이 완료되었습니다.", Toast.LENGTH_LONG).show();
+                                                        mBluetooth.disconnect();
                                                     }
                                                 }
                                             }).show();
